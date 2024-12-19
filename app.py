@@ -2,8 +2,8 @@ from typing import List
 import streamlit as st
 from haystack import component, Document
 from haystack import Pipeline
-from haystack.nodes.generators import HuggingFaceTGIGenerator
-from haystack.nodes.builders.prompt_builder import PromptBuilder
+from haystack.components.generators import HuggingFaceTGIGenerator
+from haystack.components.builders.prompt_builder import PromptBuilder
 from dotenv import load_dotenv
 from pymed import PubMed
 from PIL import Image

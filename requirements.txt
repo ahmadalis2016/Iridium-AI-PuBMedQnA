@@ -3,3 +3,4 @@ pymed
 streamlit
 python-dotenv
 transformers
+mistral-haystack

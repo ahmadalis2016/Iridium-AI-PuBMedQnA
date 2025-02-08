@@ -45,10 +45,10 @@ class PubMedFetcher():
             print(f"Couldn't fetch articles for queries: {queries}")
         return {'articles': articles}
 
-keyword_llm = HuggingFaceTGIGenerator("mistralai/Mistral-7B-Instruct-v0.2")
+keyword_llm = HuggingFaceTGIGenerator("mistralai/Mistral-7B-Instruct-v0.3")
 keyword_llm.warm_up()
 
-llm = HuggingFaceTGIGenerator("mistralai/Mistral-7B-Instruct-v0.2")
+llm = HuggingFaceTGIGenerator("mistralai/Mistral-7B-Instruct-v0.3")
 llm.warm_up()
 
 keyword_prompt_template = """

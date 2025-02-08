@@ -37,11 +37,11 @@ class PubMedFetcher:
 
 # Initialize components
 keyword_llm = HuggingFaceTGIChatGenerator(
-    model="mistralai/Mistral-7B-Instruct-v0.1",
+    model="mistralai/Mistral-7B-Instruct-v0.2",
     token=os.getenv('HUGGINGFACE_API_KEY')
 )
 llm = HuggingFaceTGIChatGenerator(
-    model="mistralai/Mistral-7B-Instruct-v0.1",
+    model="mistralai/Mistral-7B-Instruct-v0.2",
     token=os.getenv('HUGGINGFACE_API_KEY')
 )
 

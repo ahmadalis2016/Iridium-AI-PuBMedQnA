@@ -3,6 +3,7 @@ import streamlit as st
 from haystack import component, Document
 from haystack import Pipeline
 from haystack.components.generators.chat import HuggingFaceTGIChatGenerator
+from haystack.dataclasses import ChatMessage
 from haystack.components.builders.prompt_builder import PromptBuilder
 from dotenv import load_dotenv
 from pymed import PubMed

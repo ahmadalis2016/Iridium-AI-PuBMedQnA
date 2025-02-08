@@ -1,7 +1,7 @@
 from typing import List
 import streamlit as st
 from haystack import component, Document, Pipeline
-from haystack.components.generators.chat import HuggingFaceAPIChatGenerator
+from haystack.components.generators import HuggingFaceAPIGenerator
 from haystack.components.prompt import PromptBuilder
 from dotenv import load_dotenv
 from pymed import PubMed

@@ -1,8 +1,7 @@
 from typing import List
 import streamlit as st
-from haystack import component, Document
-from haystack import Pipeline
-from haystack.dataclasses import ChatMessage
+from haystack import component, Document, Pipeline
+from haystack.components.generators.chat import HuggingFaceTGIChatGenerator
 from haystack.components.builders.prompt_builder import PromptBuilder
 from dotenv import load_dotenv
 from pymed import PubMed
@@ -11,99 +10,96 @@ import os
 
 load_dotenv()
 
-# Streamlit app initialization.
+# Streamlit setup
 st.set_page_config(page_title="Iridium AI")
-
-# Load and display Iridium logo.
-logo_path = "Images/IridiumAILogo.png"
-iridium_logo = Image.open(logo_path)
-st.image(iridium_logo, use_column_width=False)
-
+logo = Image.open("Images/IridiumAILogo.png")
+st.image(logo, use_column_width=False)
 st.header("Q&A Chatbot Powered by PubMed & Mistral AI")
 
-os.environ['HUGGINGFACE_API_KEY'] = os.getenv('HUGGINGFACE_API_KEY')
-
+# Initialize PubMed client
 pubmed = PubMed(tool="Haystack2.0Prototype", email="emailabc@gmail.com")
 
 def documentize(article):
     return Document(content=article.abstract, meta={'title': article.title, 'keywords': article.keywords})
 
 @component
-class PubMedFetcher():
+class PubMedFetcher:
     @component.output_types(articles=List[Document])
-    def run(self, queries: list[str]):
-        cleaned_queries = [query.strip() for query in queries[0].split('\n')]
+    def run(self, queries: List[str]):
         articles = []
-        try:
-            for query in cleaned_queries:
+        for query in queries:
+            try:
                 response = pubmed.query(query, max_results=1)
-                documents = [documentize(article) for article in response]
-                articles.extend(documents)
-        except Exception as e:
-            print(e)
-            print(f"Couldn't fetch articles for queries: {queries}")
+                articles.extend([documentize(art) for art in response])
+            except Exception as e:
+                st.error(f"Error fetching {query}: {e}")
         return {'articles': articles}
 
-keyword_llm = HuggingFaceTGIGenerator("mistralai/Mistral-7B-Instruct-v0.3")
-keyword_llm.warm_up()
-
-llm = HuggingFaceTGIGenerator("mistralai/Mistral-7B-Instruct-v0.3")
-llm.warm_up()
+# Initialize components
+keyword_llm = HuggingFaceTGIChatGenerator(
+    model="mistralai/Mistral-7B-Instruct-v0.3",
+    token=os.getenv('HUGGINGFACE_API_KEY')
+)
+llm = HuggingFaceTGIChatGenerator(
+    model="mistralai/Mistral-7B-Instruct-v0.3",
+    token=os.getenv('HUGGINGFACE_API_KEY')
+)
 
 keyword_prompt_template = """
-Your task is to convert the following question into 3 keywords that can be used to find relevant medical research papers on PubMed.
-Here is an examples:
-question: "What are the latest treatments for major depressive disorder?"
-keywords:
+Your task is to convert the following question into 3 keywords for PubMed searches.
+Example:
+Question: "Latest treatments for major depressive disorder?"
+Keywords:
 Antidepressive Agents
 Depressive Disorder, Major
 Treatment-Resistant depression
----
-question: {{ question }}
-keywords:
+
+Question: {{ question }}
+Keywords:
 """
 
 prompt_template = """
-Answer the question truthfully based on the given documents.
-If the documents don't contain an answer, use your existing knowledge base.
+Answer based on the documents. If unsure, say so.
 
-q: {{ question }}
-Articles:
-{% for article in articles %}
-  {{article.content}}
-  keywords: {{article.meta['keywords']}}
-  title: {{article.meta['title']}}
+Question: {{ question }}
+Documents:
+{% for doc in articles %}
+  Title: {{ doc.meta['title'] }}
+  Keywords: {{ doc.meta['keywords'] }}
+  Content: {{ doc.content }}
 {% endfor %}
+Answer:
 """
 
-keyword_prompt_builder = PromptBuilder(template=keyword_prompt_template)
-prompt_builder = PromptBuilder(template=prompt_template)
-fetcher = PubMedFetcher()
-
+# Build pipeline
 pipe = Pipeline()
-pipe.add_component("keyword_prompt_builder", keyword_prompt_builder)
+pipe.add_component("keyword_builder", PromptBuilder(keyword_prompt_template))
 pipe.add_component("keyword_llm", keyword_llm)
-pipe.add_component("pubmed_fetcher", fetcher)
-pipe.add_component("prompt_builder", prompt_builder)
+pipe.add_component("fetcher", PubMedFetcher())
+pipe.add_component("prompt_builder", PromptBuilder(prompt_template))
 pipe.add_component("llm", llm)
 
-pipe.connect("keyword_prompt_builder.prompt", "keyword_llm.prompt")
-pipe.connect("keyword_llm.replies", "pubmed_fetcher.queries")
-pipe.connect("pubmed_fetcher.articles", "prompt_builder.articles")
+pipe.connect("keyword_builder.prompt", "keyword_llm.prompt")
+pipe.connect("keyword_llm.replies", "fetcher.queries")
+pipe.connect("fetcher.articles", "prompt_builder.articles")
 pipe.connect("prompt_builder.prompt", "llm.prompt")
 
 def ask(question):
-    output = pipe.run(data={"keyword_prompt_builder": {"question": question},
-                            "prompt_builder": {"question": question},
-                            "llm": {"generation_kwargs": {"max_new_tokens": 500}}})
-    return output['llm']['replies'][0]
+    output = pipe.run(
+        data={
+            "keyword_builder": {"question": question},
+            "prompt_builder": {"question": question},
+            "llm": {"generation_kwargs": {"max_new_tokens": 500}}
+        }
+    )
+    return output["llm"]["replies"][0]
 
+# Streamlit UI
 question = st.text_input("Enter your question")
 if st.button("Ask"):
     answer = ask(question)
-    st.markdown(answer)
+    st.markdown(f"**Answer:** {answer}")
 
 st.markdown("## Examples")
-st.markdown("- What are the latest advancements in Alzheimer's disease research?")
-st.markdown("- What is the current understanding of multiple sclerosis?")
-st.markdown("- Tell me about the side effects of chemotherapy.")
+st.markdown("- Latest advancements in Alzheimer's disease research?")
+st.markdown("- Current understanding of multiple sclerosis?")

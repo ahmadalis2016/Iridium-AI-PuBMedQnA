@@ -1,4 +1,4 @@
-haystack-ai>=1.10.0
+haystack-ai>=2.0.0
 pymed
 streamlit
 python-dotenv
